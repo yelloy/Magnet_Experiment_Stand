@@ -89,8 +89,16 @@ def init_pins():
     GPIO.add_event_detect(PIN_OPTIC_SENSOR, GPIO.BOTH, callback=callback_optic_sensor)
 
 
-def sensor_thread():
-    pass
+# НЕ ГОТОВО. Есть вероятность проблемы необходимости переподключения 8 датчиков для переподключения 1-го
+def sensor_thread(cc, bus):
+    address_list = [0x4a, 0x4e, 0x5a, 0x5e]
+    for i in range(SENSORS_NUMBER):
+        for j in range(CASCADES_NUMBER):
+            i2c_hub_switch(j)
+            data = cc.cascades[j].sensors[i].write_buffer.pop(0)
+            while not bus.write_data(STANDARD_TLV493D_ADDRESS, data[0], data[1:]):
+                print("Not connected. Cascade: ", i, " Sensor: ", j)
+            print("Connected. Cascade: ", i, " Sensor: ", j)
 
 
 def i2c_hub_switch(j):
@@ -109,6 +117,7 @@ def init_sensors(bus):
             while not bus.write_data(STANDARD_TLV493D_ADDRESS, data[0], data[1:]):
                 print("Not connected. Cascade: ", i, " Sensor: ", j)
             print("Connected. Cascade: ", i, " Sensor: ", j)
+    return cc
 
 
 if __name__ == "__main__":
@@ -116,8 +125,8 @@ if __name__ == "__main__":
         init_pins()
         i2c_bus = I2CBus()
 
-        init_sensors(i2c_bus)
-        st = threading.Thread(target=sensor_thread)
+        board = init_sensors(i2c_bus)
+        st = threading.Thread(target=sensor_thread, args=(board, i2c_bus))
         st.start()
 
     except IOError as error:
